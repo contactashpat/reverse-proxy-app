@@ -32,6 +32,10 @@ const settings: AppSettings = {
     to: env.EMAIL_TO,
     sendgridApiKey: env.SENDGRID_API_KEY,
   },
+  waf: {
+    enabled: env.WAF_ENABLED,
+    rulesPath: env.WAF_RULES_PATH,
+  },
 };
 
 export default settings;

@@ -23,6 +23,8 @@ const envSchema = z.object({
   SMTP_PASS: z.string(),
   EMAIL_FROM: z.string(),
   EMAIL_TO: z.string(),
+  WAF_RULES_PATH: z.string().default('config/waf-rules.json'),
+  WAF_ENABLED: z.string().default('false').transform(val => val === 'true'),
   SENDGRID_API_KEY: z.string(),
 });
 

@@ -7,6 +7,7 @@ import * as url from 'url';
 import httpProxy = require('http-proxy');
 import * as crypto from 'crypto';
 import settings from '../config/settings';
+import { applyWAF } from './waf';
 import { isAuthorized } from './secureAdminApi';
 import { registerServer, deregisterServer, healthyServers } from './healthChecker';
 import { BackendServer } from './types';
@@ -163,10 +164,9 @@ function handleAdminApi(req: http.IncomingMessage, res: http.ServerResponse): bo
 }
 
 function handleRequest(req: http.IncomingMessage, res: http.ServerResponse) {
-  // Liveness endpoint
-  if (req.url === '/healthz') {
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
-    return res.end('OK');
+  // WAF filtering
+  if (settings.waf.enabled && applyWAF(req, res)) {
+    return;
   }
   if (handleAdminApi(req, res)) return;
   const target = selectTarget(req, res);

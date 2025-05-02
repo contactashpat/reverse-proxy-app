@@ -56,4 +56,8 @@ export interface AppSettings {
   proxy: ProxySettings;
   admin: AdminSettings;
   email: EmailSettings;
+  waf: {
+    enabled: boolean;
+    rulesPath: string;
+  };
 }

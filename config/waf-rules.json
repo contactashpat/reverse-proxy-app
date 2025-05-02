@@ -1,0 +1,8 @@
+{
+  "patterns": [
+    "union\\s+select",
+    "<script>",
+    "\\.\\./",
+    "etc/passwd"
+  ]
+}
