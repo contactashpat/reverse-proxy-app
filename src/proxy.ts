@@ -7,7 +7,7 @@ import * as url from 'url';
 import httpProxy = require('http-proxy');
 import * as crypto from 'crypto';
 import settings from '../config/settings';
-import { applyWAF } from './waf';
+import { applyWAF } from './handlers/waf';
 import { isAuthorized } from './secureAdminApi';
 import { registerServer, deregisterServer, healthyServers } from './healthChecker';
 import { BackendServer } from './types';

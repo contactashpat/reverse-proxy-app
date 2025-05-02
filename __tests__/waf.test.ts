@@ -1,5 +1,5 @@
 // waf.test.ts
-import { applyWAF } from '../src/waf';
+import { applyWAF } from '../src/handlers/waf';
 
 describe('Web Application Firewall (WAF)', () => {
   it('blocks requests matching malicious patterns', () => {
