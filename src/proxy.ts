@@ -163,6 +163,11 @@ function handleAdminApi(req: http.IncomingMessage, res: http.ServerResponse): bo
 }
 
 function handleRequest(req: http.IncomingMessage, res: http.ServerResponse) {
+  // Liveness endpoint
+  if (req.url === '/healthz') {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    return res.end('OK');
+  }
   if (handleAdminApi(req, res)) return;
   const target = selectTarget(req, res);
   // Use circuit-breaker with fallback to retry/backoff
