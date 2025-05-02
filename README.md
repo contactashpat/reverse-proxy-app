@@ -108,8 +108,16 @@ cd reverse-proxy-app
 npm install
 chmod +x scripts/generateCert.sh
 ./scripts/generateCert.sh
-npm run build
 ```
+
+<!-- If using ACME with a real domain, run: -->
+<!--
+export USE_ACME=true
+export DOMAIN=your.domain.com
+export WEBROOT=/path/to/webroot
+chmod +x scripts/generateCert.sh
+./scripts/generateCert.sh
+-->
 
 ### Running in Development
 
