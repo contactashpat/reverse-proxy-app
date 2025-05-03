@@ -5,7 +5,7 @@
   "main": "dist/proxy.js",
   "scripts": {
     "test": "jest --verbose",
-    "test:integration": "jest --config jest.integration.config.js",
+    "test:i": "jest --config jest.integration.config.js",
     "smoke": "bash scripts/e2e.sh",
     "build": "tsc",
     "start": "node dist/proxy.js",
