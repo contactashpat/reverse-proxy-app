@@ -147,6 +147,7 @@ src/
 8. **Metrics**: update Prometheus counters, available at `/metrics`  
 9. **Alerting**: `healthChecker` sends email via SendGrid on state changes  
 
+
 ### 3. Sequence Diagram (Textual)
 
 ```text
@@ -167,6 +168,51 @@ else allowed
   end
 end
 ```
+
+## Request-Response Flow Diagram
+
+Below is a **Mermaid** sequence diagram illustrating the full request-response path through the proxy:
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant RP as Reverse Proxy
+    participant WAF as WAF
+    participant API as Admin API
+    participant LB as Load Balancer
+    participant CB as Circuit Breaker
+    participant B as Backend
+
+    C->>RP: HTTPS Request (/path)
+    RP->>WAF: applyWAF()
+    alt blocked by WAF
+        WAF-->>RP: Forbidden
+        RP-->>C: 403 Forbidden
+    else passed
+        RP->>API: handleAdminApi()
+        alt is Admin call
+            API-->>RP: Admin response
+            RP-->>C: 200 OK (Admin)
+        else proxy path
+            RP->>LB: selectTarget(req)
+            LB-->>RP: target host:port
+            RP->>CB: proxyBreaker.fire()
+            alt breaker closed & success
+                RP->>B: forward request
+                B-->>RP: backend response
+            else breaker open/failure
+                CB-->>RP: error
+                RP->>RP: attemptProxy()
+                RP->>B: retry forward
+                B-->>RP: backend response or error
+            end
+            alt backend response OK
+                RP-->>C: 200 OK (Backend)
+            else backend error
+                RP-->>C: 502 Bad Gateway
+            end
+        end
+    end
 
 ## Getting Started
 
