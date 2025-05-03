@@ -23,10 +23,13 @@ This section describes what the proxy does from an end-user or operator perspect
 - **Load Balancing**  
   Distributes incoming traffic across healthy backends using configurable sticky session strategies (IP hashing or cookie-based).
 - **Admin API**  
-  Secure endpoints to change proxy behavior at runtime:
-    - `POST /admin/sticky-mode` to switch between `ip-hash` and `cookie` modes.
-    - `POST /admin/server/register` to add a backend.
-    - `POST /admin/server/deregister` to remove a backend.
+  Secure, pluggable endpoints to change proxy behavior at runtime:
+    - `GET    /admin/waf/rules`         → List current WAF rule patterns.
+    - `POST   /admin/waf/rules`         → Add a new WAF rule (hot‑reloaded on save).
+    - `DELETE /admin/waf/rules`         → Remove an existing WAF rule.
+    - `POST   /admin/sticky-mode`       → Switch between `ip-hash` and `cookie` modes.
+    - `POST   /admin/server/register`   → Add a backend.
+    - `POST   /admin/server/deregister` → Remove a backend.
 - **Metrics & Monitoring**  
   Exposes Prometheus‑style metrics at `/metrics` for request counts, active requests, queued requests, and average response time.
 - **Alerting**  
@@ -45,13 +48,15 @@ Details about implementation and technologies used:
     - `zod` for runtime environment validation
     - `@sendgrid/mail` for HTTP‐based email alerts (replacing SMTP)
     - `prom-client` for Prometheus metric collection with correct Content-Type
+    - `chokidar` for file‑watching and zero‑downtime hot‑reload of WAF rules.
+    - Modular Admin API using the Open/Closed Principle (pluggable AdminRoute classes).
 - **Process Management**
     - PM2 in cluster mode for zero‑downtime restarts and multi-core utilization
     - Dockerfile (multi-stage) for container builds
     - `docker-compose.yml` for full-stack local development (proxy, backends, MailHog, Prometheus, Grafana)
 - **Testing & Development**
     - `ts-node-dev` for hot reload during development
-    - `jest` + `ts-jest` for unit and integration tests
+    - **Unit/Integration:** Jest (`__tests__/*.test.ts`), including a dedicated `jest.integration.config.js` and `test/setupEnv.ts` for bootstrapping integration tests on ephemeral ports.
     - End-to-end smoke tests via shell scripts (`scripts/*.sh`)
     - Setup file for Jest (`test/setupEnv.ts`) to bootstrap environment variables
 - **Build & Deployment**
@@ -70,27 +75,98 @@ High-level design and flow:
         │   Client    │
         └──────┬──────┘
                ↓
-   ┌────────────────────────┐
-   │      HTTPS Proxy       │
-   │  (TLS termination,     │
-   │   load balancing,      │
-   │   sticky sessions,     │
-   │   admin API, metrics)  │
-   └───────┬───┬───────────┘
-           │   │
-      ┌────┘   └────┐
-      ↓              ↓
-┌──────────┐    ┌──────────┐
-│ Backend  │    │ Backend  │
-│ Server 1 │    │ Server 2 │
-└──────────┘    └──────────┘
-(… additional backends …)
+   ┌──────────────────────────────────────────────────┐
+   │              HTTPS Reverse Proxy                │
+   │  • TLS termination & ACME support               │
+   │  • Load balancing (IP-hash / cookie)            │
+   │  • Web Application Firewall (hot-reloaded)      │
+   │  • Health checks, retries & circuit breaker     │
+   │  • Admin API & dynamic backend discovery        │
+   │  • Metrics endpoint & alerting integration      │
+   └───────────────┬───────────────┬────────────────┘
+                   │               │
+         ┌─────────┘               └─────────┐
+         ↓                                 ↓
+   ┌──────────────┐                 ┌──────────────┐
+   │  Backend 1   │  ...  Backend N │  Third-Party │
+   │  (microservices)│              │  Services    │
+   └──────────────┘                 └──────────────┘
+
+   **External Systems**  
+   - Prometheus (scrapes `/metrics`)  
+   - Grafana (dashboard & alerting)  
+   - MailHog / Email Service (alerts)  
 ```
 
 - **Dynamic Discovery**: Backends can be registered/deregistered at runtime.
 - **Health Monitoring**: Periodic health pings ensure traffic is only routed to healthy nodes.
 - **Prometheus Integration**: Metrics endpoint for monitoring systems.
 - **Alerting**: Email notifications for critical events.
+
+## Low-Level Design
+
+### 1. Folder & Module Layout
+
+```text
+src/
+├── index.ts               # Entry point: parses env, wires up servers
+├── proxy.ts               # Server startup, start/stop exports
+├── config/
+│   └── settings.ts        # Zod-validated environment schema
+├── handlers/
+│   ├── requestHandler.ts  # Main HTTP request dispatch (WAF, admin, proxy)
+│   ├── upgradeHandler.ts  # WebSocket upgrade handling
+│   ├── waf.ts             # WAF loader + chokidar watcher + applyWAF()
+│   └── adminApi.ts        # Admin dispatcher using pluggable AdminRoute classes
+├── handlers/adminRoutes/  # AdminRoute implementations
+│   ├── adminRoute.ts
+│   ├── GetWafRulesRoute.ts
+│   ├── AddWafRuleRoute.ts
+│   ├── DeleteWafRuleRoute.ts
+│   ├── StickyModeRoute.ts
+│   ├── RegisterServerRoute.ts
+│   └── DeregisterServerRoute.ts
+├── routing/
+│   └── selector.ts        # IP-hash & cookie sticky logic
+├── resilience/
+│   └── breaker.ts         # Circuit breaker and retry logic
+├── healthChecker.ts       # Periodic health pings and healthyServers list
+├── websocketHandler.ts    # Shared WS upgrade logic
+└── logger.ts              # Pino-configured logger
+```
+
+### 2. Request Flow Sequence
+
+1. **Client** → HTTPS Reverse Proxy  
+2. **Liveness**: `/healthz` → `200 OK`  
+3. **WAF**: `applyWAF` checks hot‑reloaded rules → `403` or pass  
+4. **Admin API**: `/admin/*` routed via AdminRoute plugins → feature handlers  
+5. **Load-Balancing**: `selectTarget` picks from `healthyServers` (IP‑hash/cookie)  
+6. **Resilience**: `proxyBreaker.fire(...)` (circuit breaker) → fallback `attemptProxy`  
+7. **Proxy**: forward to `http://backend` or `502 Bad Gateway`  
+8. **Metrics**: update Prometheus counters, available at `/metrics`  
+9. **Alerting**: `healthChecker` sends email via SendGrid on state changes  
+
+### 3. Sequence Diagram (Textual)
+
+```text
+Client -> Proxy: HTTPS GET /
+Proxy -> WAF: apply regex rules
+alt blocked
+  Proxy -> Client: 403 Forbidden
+else allowed
+  Proxy -> AdminApi: matches? (no)
+  Proxy -> LoadBalancer: selectTarget(req)
+  Proxy -> CircuitBreaker: fire(proxy.web)
+  alt success
+    Proxy -> Backend: forward request
+    Backend --> Proxy: 200 OK
+    Proxy --> Client: 200 OK
+  else failure
+    Proxy -> Retry: attemptProxy(req, res)
+  end
+end
+```
 
 ## Getting Started
 
@@ -181,6 +257,7 @@ The repository includes automated test suites:
 - **Unit/Integration:** Jest (`__tests__/*.test.ts`), mocking `sendAlert` and using `checkServerHealth()`
 - **End-to-End:** `scripts/*.sh` for IP-hash, cookie, dynamic backend, and observability checks
 - **Prometheus/Grafana checks:** Scripts under `scripts/` can verify target health and dashboard config
+- **Integration Tests:** `npm run test:i` uses `jest.integration.config.js` to spin up the proxy on random ports and validate end-to-end behavior (IP-hash, cookie sessions, dynamic backends, WAF).
 
 ## Contributing
 
