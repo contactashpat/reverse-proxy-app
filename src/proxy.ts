@@ -7,6 +7,9 @@ import { handleRequest } from './handlers/requestHandler';
 import { handleUpgrade } from './handlers/upgradeHandler';
 import type { Server as HttpServer } from 'http';
 
+// Environment mode flags
+const isTest = process.env.NODE_ENV === 'test';
+
 /**
  * Start the proxy servers.
  * Returns a promise that resolves with the server instances once both are listening.
@@ -14,14 +17,10 @@ import type { Server as HttpServer } from 'http';
 export function startProxy(): Promise<{ httpsServer: HttpServer; httpServer: HttpServer }> {
   return new Promise(resolve => {
     // Use ephemeral ports in test mode to avoid conflicts
-    const httpsPort = process.env.NODE_ENV === 'test'
-      ? 0
-      : settings.proxy.httpsPort;
-    const httpPort = process.env.NODE_ENV === 'test'
-      ? 0
-      : settings.proxy.httpRedirectPort;
+    const httpsPort = isTest ? 0 : settings.proxy.httpsPort;
+    const httpPort = isTest ? 0 : settings.proxy.httpRedirectPort;
 
-    const httpsServer = process.env.NODE_ENV === 'test'
+    const httpsServer = isTest
       ? http.createServer(handleRequest)
       : https.createServer(sslOptions, handleRequest);
     const httpServer = http.createServer((req, res) => {
@@ -54,11 +53,12 @@ export function startProxy(): Promise<{ httpsServer: HttpServer; httpServer: Htt
  * Stop the proxy servers.
  * Returns a promise that resolves once both servers are closed.
  */
-export function stopProxy(servers: { httpsServer: HttpServer; httpServer: HttpServer }): Promise<void> {
-  return Promise.all([
+export async function stopProxy(servers: { httpsServer: HttpServer; httpServer: HttpServer }): Promise<void> {
+  await Promise.all([
     new Promise<void>(res => servers.httpsServer.close(() => res())),
-    new Promise<void>(res => servers.httpServer.close(() => res())),
-  ]).then(() => undefined);
+    new Promise<void>(res_1 => servers.httpServer.close(() => res_1())),
+  ]);
+  return undefined;
 }
 
 // If this script is run directly, start the servers immediately
