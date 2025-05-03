@@ -1,55 +1,56 @@
 // src/handlers/adminApi.ts
-import { IncomingMessage, ServerResponse } from 'http';
 import url from 'url';
+import { IncomingMessage, ServerResponse } from 'http';
 import { isAuthorized } from '../secureAdminApi';
-import { registerServer, deregisterServer } from '../healthChecker';
+import {
+  GetWafRulesRoute,
+  AddWafRuleRoute,
+  DeleteWafRuleRoute,
+  StickyModeRoute,
+  RegisterServerRoute,
+  DeregisterServerRoute,
+} from './adminRoutes';
 
 /**
  * Returns true if this request was an Admin API call (and has been handled).
  */
 export function handleAdminApi(req: IncomingMessage, res: ServerResponse): boolean {
-  const parsed = url.parse(req.url || '', true);
-  if (!parsed.pathname?.startsWith('/admin')) return false;
+  const routes = [
+    new GetWafRulesRoute(),
+    new AddWafRuleRoute(),
+    new DeleteWafRuleRoute(),
+    new StickyModeRoute(),
+    new RegisterServerRoute(),
+    new DeregisterServerRoute(),
+  ];
 
+  const parsedUrl = url.parse(req.url || '', true);
+  const { pathname = '', query } = parsedUrl;
+  if (pathname && !pathname.startsWith('/admin')) return false;
+
+  // Authorization
   if (!isAuthorized(req)) {
     res.writeHead(401, { 'WWW-Authenticate': 'Basic realm="Admin Area"' });
     res.end('Unauthorized');
     return true;
   }
 
-  let body = '';
-  req.on('data', chunk => (body += chunk));
+  // Collect body for non-GET methods
+  let bodyData = '';
+  req.on('data', chunk => (bodyData += chunk));
   req.on('end', () => {
-    try {
-      const payload = JSON.parse(body);
-      // Sticky-mode toggle
-      if (parsed.pathname === '/admin/sticky-mode' && req.method === 'POST') {
-        const mode = payload.mode;
-        if (mode === 'ip-hash' || mode === 'cookie') {
-          // We’ll update stickySessionMode in-memory elsewhere
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          return res.end(JSON.stringify({ success: true, mode }));
-        }
+    const body = bodyData ? JSON.parse(bodyData) : undefined;
+
+    // Dispatch to the first matching route
+    for (const route of routes) {
+      if (pathname && route.matches(pathname, req.method || 'GET')) {
+        return route.handle(req, res, query, body);
       }
-      // Dynamic server register
-      if (parsed.pathname === '/admin/server/register' && req.method === 'POST') {
-        const { host, port } = payload;
-        registerServer({ host, port });
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify({ success: true }));
-      }
-      // Dynamic server deregister
-      if (parsed.pathname === '/admin/server/deregister' && req.method === 'POST') {
-        const { port } = payload;
-        deregisterServer(port);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify({ success: true }));
-      }
-      throw new Error();
-    } catch {
-      res.writeHead(400);
-      return res.end('Invalid Admin Payload');
     }
+
+    // No route matched
+    res.writeHead(404);
+    res.end('Not Found');
   });
 
   return true;

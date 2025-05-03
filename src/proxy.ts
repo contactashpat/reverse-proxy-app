@@ -13,7 +13,17 @@ import type { Server as HttpServer } from 'http';
  */
 export function startProxy(): Promise<{ httpsServer: HttpServer; httpServer: HttpServer }> {
   return new Promise(resolve => {
-    const httpsServer = https.createServer(sslOptions, handleRequest);
+    // Use ephemeral ports in test mode to avoid conflicts
+    const httpsPort = process.env.NODE_ENV === 'test'
+      ? 0
+      : settings.proxy.httpsPort;
+    const httpPort = process.env.NODE_ENV === 'test'
+      ? 0
+      : settings.proxy.httpRedirectPort;
+
+    const httpsServer = process.env.NODE_ENV === 'test'
+      ? http.createServer(handleRequest)
+      : https.createServer(sslOptions, handleRequest);
     const httpServer = http.createServer((req, res) => {
       const host = req.headers.host;
       res.writeHead(301, { Location: `https://${host}${req.url}` });
@@ -29,11 +39,11 @@ export function startProxy(): Promise<{ httpsServer: HttpServer; httpServer: Htt
       }
     };
 
-    httpsServer.listen(settings.proxy.httpsPort, () => {
+    httpsServer.listen(httpsPort, () => {
       logger.info(`✅ HTTPS Reverse Proxy running on port ${settings.proxy.httpsPort}`);
       onReady();
     });
-    httpServer.listen(settings.proxy.httpRedirectPort, () => {
+    httpServer.listen(httpPort, () => {
       logger.info(`➡️ Redirecting HTTP to HTTPS on port ${settings.proxy.httpRedirectPort}`);
       onReady();
     });

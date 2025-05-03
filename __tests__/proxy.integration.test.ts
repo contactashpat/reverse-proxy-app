@@ -1,17 +1,18 @@
-// __tests__/proxy.integration.ts
+// __tests__/proxy.integration.test.ts
 import request from 'supertest';
 import { startProxy, stopProxy } from '../src/proxy';  // export helpers
 
-let server: any;
+let servers: any;
 beforeAll(async () => {
-  server = await startProxy();
+  servers = await startProxy();
 });
 afterAll(async () => {
-  await stopProxy(server);
+  await stopProxy(servers);
 });
 
 test('IP-hash sticky session', async () => {
-  const res1 = await request(server).get('/');
-  const res2 = await request(server).get('/');
+  const agent = request(servers.httpsServer);
+  const res1 = await agent.get('/');
+  const res2 = await agent.get('/');
   expect(res1.text).toEqual(res2.text);
 });

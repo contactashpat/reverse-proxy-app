@@ -3,16 +3,54 @@ import fs from 'fs';
 import path from 'path';
 import { IncomingMessage, ServerResponse } from 'http';
 import settings from '../../config/settings';
+import chokidar from 'chokidar';
 
 interface WAFRules {
   patterns: string[];
 }
 
-// Load and compile regex patterns from the configured rules file
 const configPath = path.resolve(settings.waf.rulesPath);
-const raw = fs.readFileSync(configPath, 'utf-8');
-const { patterns } = JSON.parse(raw) as WAFRules;
-const rules = patterns.map(pat => new RegExp(pat, 'i'));
+let rules: RegExp[] = [];
+
+/** Load the JSON rules file and compile regexes */
+function loadRules(): void {
+  let raw: string;
+  try {
+    raw = fs.readFileSync(configPath, 'utf-8');
+  } catch {
+    // Missing or unreadable rules file → clear rules
+    rules = [];
+    return;
+  }
+  let parsed: WAFRules;
+  try {
+    parsed = JSON.parse(raw) as WAFRules;
+  } catch {
+    // Invalid JSON → clear rules
+    rules = [];
+    return;
+  }
+  if (!parsed.patterns || !Array.isArray(parsed.patterns)) {
+    // Malformed structure → clear rules
+    rules = [];
+    return;
+  }
+  rules = parsed.patterns.map(pat => new RegExp(pat, 'i'));
+}
+
+// Initial load & watch for changes
+loadRules();
+chokidar.watch(configPath, { ignoreInitial: true })
+  .on('add', loadRules)
+  .on('change', loadRules)
+  .on('unlink', loadRules);
+
+/**
+ * Manually trigger a reload (e.g. from Admin API)
+ */
+export function reloadRules(): void {
+  loadRules();
+}
 
 /**
  * Apply WAF rules to an incoming request.
