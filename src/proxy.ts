@@ -10,6 +10,12 @@ import type { Server as HttpServer } from 'http';
 // Environment mode flags
 const isTest = process.env.NODE_ENV === 'test';
 
+const sslOptions = {
+  key: fs.readFileSync(settings.ssl.keyPath),
+  cert: fs.readFileSync(settings.ssl.certPath)
+};
+
+
 /**
  * Start the proxy servers.
  * Returns a promise that resolves with the server instances once both are listening.
@@ -66,7 +72,3 @@ if (require.main === module) {
   startProxy();
 }
 
-const sslOptions = {
-  key: fs.readFileSync(settings.ssl.keyPath),
-  cert: fs.readFileSync(settings.ssl.certPath)
-};

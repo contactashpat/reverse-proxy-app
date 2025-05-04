@@ -13,20 +13,8 @@ services:
       - backend2
       - backend3
       - mailhog
-    # Environment overrides for SMTP (SendGrid) and backend discovery
-    environment:
-      # Email via SendGrid (Twilio’s SendGrid)
-      - USE_ACME=false
-      - DOMAIN=your.real-domain.com
-      - WEBROOT=/usr/share/nginx/html
-      - SMTP_HOST=smtp.sendgrid.net
-      - SMTP_PORT=587
-      - SMTP_USER=apikey
-      - SMTP_PASS=${SENDGRID_API_KEY}   # set this in your .env with your SG key
     volumes:
       - ./ssl:/app/ssl
-      # Backend servers list (use Docker service names)
-      - BACKEND_SERVERS=[{"host":"backend1","port":3001},{"host":"backend2","port":3002},{"host":"backend3","port":3003}]
     restart: always
 
   backend1:

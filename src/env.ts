@@ -1,3 +1,4 @@
+import 'dotenv/config';
 // src/env.ts - Environment variable validation with Zod
 import { z } from 'zod';
 import { BackendServer } from './types';
