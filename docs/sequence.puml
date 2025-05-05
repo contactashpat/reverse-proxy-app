@@ -1,12 +1,47 @@
 @startuml
-title Request / Response Flow
+title Detailed Reverse-Proxy Flow
 
-participant Client
+skinparam backgroundColor #EEE
+skinparam sequenceArrowThickness 2
+
+actor Client
+participant "TLS Termination\n& ACME" as TLS
+participant WAF
+participant "Admin API\n(secured)" as API
+participant "Load Balancer\n(IP-hash / Cookie)" as LB
+participant "Circuit Breaker\n(opossum)" as CB
 participant Proxy
-participant Backend
+participant Backend1 as B1
+participant Backend2 as B2
 
-Client -> Proxy: GET /foo
-Proxy -> Backend: forward request
-Backend --> Proxy: 200 OK
-Proxy --> Client: 200 OK
+Client -> TLS: HTTPS GET /foo
+TLS --> Proxy: decrypted request
+Proxy -> WAF: applyWAF(req)
+alt blocked
+  WAF --> Proxy: 403 Forbidden
+  Proxy --> Client: 403 Forbidden
+else allowed
+  Proxy -> API: match /admin/*
+  alt admin call
+    API --> Proxy: 200 OK + payload
+    Proxy --> Client: 200 OK (JSON)
+  else normal
+    Proxy -> LB: selectTarget(req, stickyKey)
+    LB --> Proxy: choose B1 or B2
+    Proxy -> CB: proxyBreaker.fire()
+    alt circuit closed
+      Proxy -> BackendX: forward request
+      BackendX --> Proxy: 200 OK / 5xx
+    else open or error
+      CB --> Proxy: fallback
+      Proxy -> BackendY: retry request
+    end
+    alt 2xx
+      Proxy --> Client: 200 OK
+    else 5xx
+      Proxy --> Client: 502 Bad Gateway
+    end
+  end
+end
+
 @enduml
