@@ -9,7 +9,9 @@
     "smoke": "bash scripts/e2e.sh",
     "build": "tsc",
     "start": "node dist/proxy.js",
-    "dev": "ts-node-dev --respawn --transpile-only src/proxy.ts"
+    "dev": "ts-node-dev --respawn --transpile-only src/proxy.ts",
+    "prepare": "husky",
+    "encode-puml": "plantuml -encodeurl docs/flow.puml > .puml-url.txt && node scripts/applyPumlUrls.js"
   },
   "dependencies": {
     "@sendgrid/mail": "^8.1.5",
@@ -32,6 +34,7 @@
     "@types/supertest": "^6.0.3",
     "husky": "^9.1.7",
     "jest": "^29.7.0",
+    "plantuml": "^0.0.2",
     "supertest": "^7.1.0",
     "ts-jest": "^29.3.2",
     "ts-node": "^10.9.2",
