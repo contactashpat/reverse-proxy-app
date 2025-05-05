@@ -213,6 +213,7 @@ sequenceDiagram
             end
         end
     end
+```
 
 ## Getting Started
 
