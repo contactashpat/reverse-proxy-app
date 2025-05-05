@@ -214,6 +214,11 @@ sequenceDiagram
         end
     end
 ```
+       
+### Sequence diagram
+<!-- or with an HTML <img> for sizing control: -->
+<img src="https://www.plantuml.com/plantuml/svg/AyaioKbL24ejB4qjBb7G1xAA2_BpYbCLt7Booxcu2XABIZAJCmiIyqeKd7CoK_DAK8G2Yl8hAb54d1AJirFpKhYu8AeLTEqWYgmKt5r35FJJylEvm7oG15IjbK9QVb5vOb6AGX746LnG2GLTX6uZ0mC5Vs-ONg0un7oO1000" alt="Flow Diagram" width="700"/>
+
 
 ## Getting Started
 

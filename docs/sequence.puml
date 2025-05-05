@@ -1,0 +1,12 @@
+@startuml
+title Request / Response Flow
+
+participant Client
+participant Proxy
+participant Backend
+
+Client -> Proxy: GET /foo
+Proxy -> Backend: forward request
+Backend --> Proxy: 200 OK
+Proxy --> Client: 200 OK
+@enduml
