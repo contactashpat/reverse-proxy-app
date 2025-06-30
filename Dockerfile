@@ -17,7 +17,7 @@ WORKDIR /app
 # Copy built app and prod deps
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package*.json ./
-RUN npm ci --production
+RUN npm ci
 
 # Copy SSL certs & scripts if needed
 COPY --from=builder /app/ssl ./ssl

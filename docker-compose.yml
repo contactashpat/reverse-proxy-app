@@ -1,8 +1,10 @@
+version: "3.8"
+
 services:
   proxy:
     build: .
     ports:
-      - "${HTTP_REDIRECT_PORT:-8080}:8080"
+      - "${HTTP_REDIRECT_PORT:-3002}:3002"
       - "${HTTPS_PORT:-8443}:8443"
     env_file:
           - .env
@@ -58,3 +60,43 @@ services:
       - prometheus
     ports:
       - "3000:3000"
+
+  user-service:
+    build:
+      context: ./src/user-service
+    ports:
+      - "4001:4001"
+    environment:
+      - USER_SERVICE_PORT=4001
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 256M
+
+  order-service:
+    build:
+      context: ./src/order-service
+    ports:
+      - "4002:4002"
+    environment:
+      - ORDER_SERVICE_PORT=4002
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4002/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 256M
