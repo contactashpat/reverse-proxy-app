@@ -32,4 +32,4 @@ COPY --from=builder /app/dist/src ./src
 EXPOSE 8080 8443
 
 # Run proxy
-CMD ["node", "dist/proxy.js"]
+CMD ["node", "dist/src/proxy.js"]

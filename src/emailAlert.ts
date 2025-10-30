@@ -10,6 +10,10 @@ import { sendAlertEmail } from './sendgridClient';
 export async function sendAlert(subject: string, message: string): Promise<void> {
   try {
     const response = await sendAlertEmail(subject, message);
+    if (!response) {
+      logger.info('📧 Email alerts are disabled; skipping SendGrid send.');
+      return;
+    }
     // Extract SendGrid message ID from headers
     const messageId = (response.headers?.['x-message-id'] || response.headers?.['x-message-id'.toLowerCase()]) as string;
     logger.info(`📧 Alert email sent: ${messageId}`);

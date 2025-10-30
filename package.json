@@ -2,17 +2,16 @@
   "name": "reverse-proxy-app",
   "version": "1.0.0",
   "description": "A dynamic TypeScript reverse proxy with health checks, metrics, and admin API",
-  "main": "dist/proxy.js",
+  "main": "dist/src/proxy.js",
   "scripts": {
     "test": "jest --verbose",
     "test:i": "jest --config jest.integration.config.js",
     "smoke": "bash scripts/e2e.sh",
     "build": "tsc",
-    "start": "node dist/proxy.js",
+    "start": "node dist/src/proxy.js",
     "dev": "ts-node-dev --respawn --transpile-only src/proxy.ts",
     "prepare": "husky",
     "encode-puml": "docker run --rm -v $(pwd):/data plantuml/plantuml -tsvg ./docs/*.puml"
-
   },
   "dependencies": {
     "@sendgrid/mail": "^8.1.5",
@@ -33,7 +32,6 @@
     "@types/nodemailer": "^6.4.8",
     "@types/opossum": "^8.1.8",
     "@types/supertest": "^6.0.3",
-    "@types/uuid": "^11.0.0",
     "husky": "^9.1.7",
     "jest": "^29.7.0",
     "plantuml": "^0.0.2",
