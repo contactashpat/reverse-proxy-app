@@ -6,6 +6,7 @@ import logger from './logger';
 import { handleRequest } from './handlers/requestHandler';
 import { handleUpgrade } from './handlers/upgradeHandler';
 import type { Server as HttpServer } from 'http';
+import { ensureSecretsLoaded } from './secrets/openbaoSecrets';
 
 // Environment mode flags
 const isTest = process.env.NODE_ENV === 'test';
@@ -21,7 +22,7 @@ const sslOptions = {
  * Returns a promise that resolves with the server instances once both are listening.
  */
 export function startProxy(): Promise<{ httpsServer: HttpServer; httpServer: HttpServer }> {
-  return new Promise(resolve => {
+  return ensureSecretsLoaded().then(() => new Promise(resolve => {
     // Use ephemeral ports in test mode to avoid conflicts
     const httpsPort = isTest ? 0 : settings.proxy.httpsPort;
     const httpPort = isTest ? 0 : settings.proxy.httpRedirectPort;
@@ -52,7 +53,7 @@ export function startProxy(): Promise<{ httpsServer: HttpServer; httpServer: Htt
       logger.info(`➡️ Redirecting HTTP to HTTPS on port ${settings.proxy.httpRedirectPort}`);
       onReady();
     });
-  });
+  }));
 }
 
 /**
@@ -71,4 +72,3 @@ export async function stopProxy(servers: { httpsServer: HttpServer; httpServer: 
 if (require.main === module) {
   startProxy();
 }
-

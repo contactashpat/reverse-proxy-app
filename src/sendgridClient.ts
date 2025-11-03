@@ -2,18 +2,35 @@ import sgMail from '@sendgrid/mail';
 import type { ClientResponse } from '@sendgrid/mail';
 import settings from '../config/settings';
 import logger from './logger';
+import { ensureSecretsLoaded } from './secrets/openbaoSecrets';
 
-const apiKey = settings.email.sendgridApiKey?.trim();
+let cachedApiKey: string | null = null;
+let missingKeyWarned = false;
 
-if (apiKey) {
-  sgMail.setApiKey(apiKey);
-} else {
-  logger.warn('SendGrid API key not provided; email alerts disabled.');
+async function ensureClientReady(): Promise<boolean> {
+  await ensureSecretsLoaded();
+
+  const apiKey = settings.email.sendgridApiKey?.trim();
+  if (!apiKey) {
+    if (!missingKeyWarned) {
+      logger.warn('SendGrid API key not available; email alerts disabled.');
+      missingKeyWarned = true;
+    }
+    return false;
+  }
+
+  if (cachedApiKey !== apiKey) {
+    sgMail.setApiKey(apiKey);
+    cachedApiKey = apiKey;
+    missingKeyWarned = false;
+  }
+
+  return true;
 }
 
 export async function sendAlertEmail(subject: string, text: string): Promise<ClientResponse | null> {
-  if (!apiKey) {
-    logger.debug('Skipping SendGrid alert send; API key missing.');
+  const ready = await ensureClientReady();
+  if (!ready) {
     return null;
   }
   const msg = {
